@@ -1,0 +1,9 @@
+# CodePilot Local - Python dependencies
+streamlit>=1.46.0          # UI (1.46+ for st.context.theme, used to pick the starting light/dark mode)
+chromadb>=1.0.0            # Vector store for RAG
+requests>=2.31.0           # HTTP client for Ollama and OpenAI-compatible cloud APIs
+python-dotenv>=1.0.0       # Optional: load GROQ_API_KEY from .env
+pyflakes>=3.0.0            # Compiler panel: undefined names, unused imports
+
+# Testing
+pytest>=7.0.0

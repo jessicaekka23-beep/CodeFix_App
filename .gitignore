@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+chroma_db/
+.codepilot_backups/
+audit_log.jsonl
+*.bak
+
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+output/
+.streamlit/secrets.toml
