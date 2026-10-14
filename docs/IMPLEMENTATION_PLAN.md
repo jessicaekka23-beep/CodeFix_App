@@ -13,11 +13,11 @@
 | Phase | Description | Status | Verification Evidence |
 | :--- | :--- | :--- | :--- |
 | **Phase A** | Inspect & Plan | ✅ COMPLETE | Workspace inspected; initial Git backup created at commit `8a0ec1b`. |
-| **Phase B** | Stabilize & Dependencies | ✅ COMPLETE | Ollama verified; `nomic-embed-text` pulled; `stt.py` updated with lazy loading; dependencies installed. |
+| **Phase B** | Stabilize & Dependencies | ✅ COMPLETE | Ollama verified; `nomic-embed-text` pulled; dependencies installed (the legacy `stt.py` module was later removed). |
 | **Phase C** | Implement RAG | ✅ COMPLETE | `rag.py` & `vector_store.py` implemented; line-preserving chunker; ChromaDB persistence with MD5 deduplication. |
 | **Phase D** | Implement Agent | ✅ COMPLETE | `agent.py` & `tools.py` implemented; Task 1 (Investigate) & Task 2 (Fix) workflows; action parser with JSON fallback. |
 | **Phase E** | Safety & Sandboxing | ✅ COMPLETE | Path traversal checks; diff previews; Docker/subprocess sandbox isolation; backup engine; `audit_log.jsonl`. |
-| **Phase F** | Automated Testing | ✅ COMPLETE | 55 pytest tests passing (50 unit + 5 integration); 20 synthetic workspace tests (11 baseline failures). |
+| **Phase F** | Automated Testing | ✅ COMPLETE | 109 collected pytest tests (104 unit + 5 integration); 20 synthetic workspace tests (11 baseline failures). |
 | **Phase G** | Documentation | ✅ COMPLETE | `README.md`, `REPORT.md` (7–8 page report), `PRESENTATION_OUTLINE.md` (10 slides), `IMPLEMENTATION_PLAN.md`. |
 
 ---
@@ -28,7 +28,7 @@
 
 ```bash
 python -m pytest tests/ -v
-# Outcome: 55 passed in 55.61s
+# Outcome: 104 passed, 5 deselected in 5.5s
 ```
 
 - **Configuration & Settings (`test_config.py`):**
@@ -86,13 +86,16 @@ python -m pytest tests/ -v
   - `test_parse_agent_action_final_answer`: PASSED
   - `test_parse_agent_action_long_text_fallback`: PASSED
   - `test_parse_agent_action_malformed`: PASSED
-  - `test_classify_intent_investigate`: PASSED
-  - `test_classify_intent_fix`: PASSED
-  - `test_classify_intent_chat`: PASSED
-  - `test_classify_intent_legacy_patterns`: PASSED
   - `test_system_prompts_non_empty`: PASSED
   - `test_tool_definitions_list`: PASSED
   - `test_call_llm_integration` (integration): PASSED
+
+- **Additional Modules (added after the original plan):**
+  - `test_compiler.py`: PASSED
+  - `test_demo.py`: PASSED (instrumented indexing, 2-D map, agent events, HTML builders)
+  - `test_pipeline.py`: PASSED
+  - `test_embeddings.py`: PASSED (hashing fallback + back-end selection)
+  - `test_xp_theme.py`: PASSED
 
 ### 2. Synthetic Buggy Benchmark (`test_workspace/`)
 
@@ -121,7 +124,7 @@ Verifies the baseline un-remediated bugs across mathematical and string manipula
 - [x] Local RAG pipeline (`rag.py`)
 - [x] Persistent ChromaDB vector store (`vector_store.py`)
 - [x] Central configuration module (`config.py`)
-- [x] Optional Whisper speech-to-text (`stt.py`)
+- [x] Optional Whisper speech-to-text (the legacy `stt.py` module has since been removed)
 - [x] Verified dependencies (`requirements.txt`)
 - [x] Pytest configuration (`pytest.ini`)
 - [x] Comprehensive automated test suite (`tests/`)

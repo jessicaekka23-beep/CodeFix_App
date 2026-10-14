@@ -2,7 +2,10 @@
 ChromaDB vector store management for CodePilot Local.
 
 Handles persistence, workspace code indexing, reference document indexing,
-similarity search, and debugging notes using ChromaDB and Ollama embeddings.
+similarity search, and debugging notes. Vectors come from the selected embedding
+back-end (Ollama when reachable, otherwise the built-in hashing embedder) and are
+always passed to Chroma explicitly, so the store never depends on a registered
+embedding function and never triggers a model download.
 """
 
 from __future__ import annotations
@@ -15,43 +18,12 @@ import time
 from typing import Any
 
 import chromadb
-from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 
-from config import CHROMA_PERSIST_DIR, EMBEDDING_MODEL
+from config import CHROMA_PERSIST_DIR
+import embeddings
 import rag
-from rag import generate_embedding
 
 logger = logging.getLogger(__name__)
-
-
-class OllamaEmbeddingFunction(EmbeddingFunction):
-    """Custom ChromaDB EmbeddingFunction wrapping Ollama embedding API."""
-
-    def __init__(self, model_name: str = EMBEDDING_MODEL):
-        self.model_name = model_name
-
-    def __call__(self, input: Documents) -> Embeddings:
-        """
-        Compute embeddings for the provided input documents using Ollama.
-
-        Args:
-            input: List of strings to embed.
-
-        Returns:
-            List of float embedding vectors.
-        """
-        embeddings: list[list[float]] = []
-        for text in input:
-            try:
-                emb = generate_embedding(text, model=self.model_name)
-                if emb is None:
-                    # Provide fallback 768-dim zero vector (standard for nomic-embed-text)
-                    emb = [0.0] * 768
-                embeddings.append(emb)
-            except Exception as e:
-                logger.error(f"Error computing embedding for text chunk: {e}")
-                embeddings.append([0.0] * 768)
-        return embeddings
 
 
 class VectorStore:
@@ -79,18 +51,14 @@ class VectorStore:
             self.logger.error(f"Failed to initialize ChromaDB PersistentClient at {self.persist_dir}: {e}")
             raise
 
-    def _make_embedding_function(self) -> EmbeddingFunction:
-        """
-        Create and return an EmbeddingFunction that wraps Ollama embeddings.
-
-        Returns:
-            An instance of OllamaEmbeddingFunction.
-        """
-        return OllamaEmbeddingFunction(model_name=EMBEDDING_MODEL)
-
     def get_or_create_collection(self, name: str) -> chromadb.Collection:
         """
-        Get or create a ChromaDB collection configured with Ollama embeddings.
+        Get or create a ChromaDB collection.
+
+        Embedding is handled explicitly at every add()/query() call, so no embedding
+        function is registered. Passing ``embedding_function=None`` stops Chroma from
+        attaching its default ONNX model (which would otherwise try to download on a
+        machine with no Ollama/models).
 
         Args:
             name: Name of the collection.
@@ -98,11 +66,10 @@ class VectorStore:
         Returns:
             ChromaDB Collection instance.
         """
-        embedding_fn = self._make_embedding_function()
         try:
             collection = self.client.get_or_create_collection(
                 name=name,
-                embedding_function=embedding_fn,
+                embedding_function=None,
             )
             return collection
         except Exception as e:
@@ -213,11 +180,22 @@ class VectorStore:
             if not new_ids:
                 continue
 
+            # Embed the new chunks with the active back-end (Ollama or hashing).
+            # A failure here is reported as an error instead of silently storing
+            # zero vectors, which used to make RAG return meaningless matches.
+            try:
+                vectors = embeddings.embed_texts(new_docs)
+            except embeddings.EmbeddingError as e:
+                self.logger.error(f"Could not embed {len(new_ids)} chunk(s): {e}")
+                stats["errors"] += len(new_ids)
+                continue
+
             # Add new chunks in batch
             try:
                 collection.add(
                     ids=new_ids,
                     documents=new_docs,
+                    embeddings=vectors,
                     metadatas=new_metas,
                 )
                 stats["indexed"] += len(new_ids)
@@ -335,9 +313,16 @@ class VectorStore:
 
         if new_ids:
             try:
+                vectors = embeddings.embed_texts(new_docs)
+            except embeddings.EmbeddingError as e:
+                self.logger.error(f"Could not embed {len(new_ids)} reference chunk(s): {e}")
+                stats["errors"] += len(new_ids)
+                return stats
+            try:
                 collection.add(
                     ids=new_ids,
                     documents=new_docs,
+                    embeddings=vectors,
                     metadatas=new_metas,
                 )
                 stats["indexed"] += len(new_ids)
@@ -384,7 +369,7 @@ class VectorStore:
             self.logger.warning(f"Could not determine count for collection '{target_collection}': {e}")
             count = top_k
 
-        query_embedding = generate_embedding(query)
+        query_embedding = embeddings.embed_query(query)
         if query_embedding is None:
             self.logger.warning(f"Failed to generate query embedding for: '{query}'")
             return []
@@ -494,9 +479,16 @@ class VectorStore:
                         except Exception:
                             metadata[k] = str(v)
 
+            try:
+                vector = embeddings.embed_one(note)
+            except embeddings.EmbeddingError as e:
+                self.logger.error(f"Failed to embed debugging note: {e}")
+                return False
+
             collection.add(
                 ids=[doc_id],
                 documents=[note],
+                embeddings=[vector],
                 metadatas=[metadata],
             )
             self.logger.info(f"Saved debugging note with ID {doc_id} to {self.REFERENCE_COLLECTION}")

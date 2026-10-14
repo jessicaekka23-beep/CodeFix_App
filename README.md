@@ -5,7 +5,7 @@ agentic tasks, and ships with a compiler panel for checking code.
 
 | | |
 |---|---|
-| **Task 1 · Investigate** | The agent retrieves relevant code (ChromaDB + `nomic-embed-text`), reads files, searches, and explains the root cause with file and line citations. Never edits files. |
+| **Task 1 · Investigate** | The agent retrieves relevant code (ChromaDB + embeddings), reads files, searches, and explains the root cause with file and line citations. Never edits files. |
 | **Task 2 · Fix & Validate** | The agent proposes a minimal diff, compile-checks it, and can run your tests. Nothing is written until you click **Approve**; a backup is saved first, and approved fixes are stored as notes the agent retrieves next time. |
 | **Compiler panel** | Paste code or pick a workspace file, then **Compile** for syntax errors and undefined names (with line/column and a caret), or **Compile & run** to catch runtime errors. One click sends the errors to Task 2. |
 
@@ -18,10 +18,15 @@ OpenAI-compatible engines are optional. Cloud mode sends prompts and retrieved c
 
 ```bash
 pip install -r requirements.txt
-ollama pull nomic-embed-text      # embeddings (needed for RAG, even with a cloud engine)
+ollama pull nomic-embed-text      # optional: embeddings (falls back to a built-in embedder)
 ollama pull qwen2.5-coder:7b      # default local model
 streamlit run app.py              # http://localhost:8501
 ```
+
+Embeddings work with or without Ollama. Generation needs a model, but indexing and retrieval do not: if
+`ollama serve` is unreachable (for example on Streamlit Community Cloud) the app falls back to a
+dependency-free hashing embedder, so RAG still works with no extra services or model downloads. Force a
+back-end with `CODEPILOT_EMBED_BACKEND=ollama` or `CODEPILOT_EMBED_BACKEND=hash`.
 
 Optional: copy `.env.example` to `.env` and add `GROQ_API_KEY`, or paste the key in the sidebar.
 Docker is optional; when present, tests and "Compile & run" execute in a disposable container
@@ -49,11 +54,12 @@ a patch that does not compile cannot be approved in the UI.
 app.py            Streamlit UI (3 task panels + how-it-works, light/dark theme)
 app_pipeline.py   Pipeline UI: index -> retrieve -> investigate -> fix -> review, with the demo views
 demo_data.py      Instrumented indexing + 2-D embedding map for the demo views
+embeddings.py     Embedding back-end: Ollama when reachable, else a built-in hashing embedder
 xp_theme.py       Pixel-art XP theme (CSS) | xp_widgets.py: HTML/SVG builders for the demo views
 agent.py          Bounded tool-using agent loop, prompts, Ollama/Groq/OpenAI clients
 tools.py          Validated workspace tools: read/search/metadata, compile_check, run_tests, patches, audit log
 compiler.py       Syntax check, static analysis, sandboxed run, compiler-style reports
-rag.py            Document loader, line-preserving chunker, embeddings
+rag.py            Document loading, chunking, and Ollama batch embeddings
 vector_store.py   ChromaDB collections (workspace_code, reference_docs) with dedup
 config.py         Settings and model registry
 test_workspace/   Sample project with intentional bugs
@@ -64,13 +70,13 @@ docs/             Report, presentation outline, implementation notes
 ## Tests
 
 ```bash
-python -m pytest tests -m "not integration"   # 62 unit tests, no Ollama needed
+python -m pytest tests -m "not integration"   # 104 unit tests, no Ollama needed
 python -m pytest tests -m integration         # needs Ollama running
 ```
 
 ## Safety
 
-- Paths are confined to the workspace; `..` escapes are rejected.
+- Paths are confined to the workspace by real path components (not string prefixes), so `..` escapes and look-alike sibling folders are both rejected.
 - No workspace write happens without an explicit Approve click; each write is preceded by a timestamped backup in `.codepilot_backups/`.
 - Test and run execution has timeouts and uses Docker when available. Without Docker it falls back to a temp-directory subprocess, which is **not** a hard security sandbox.
 - Every tool call is appended to `audit_log.jsonl`.

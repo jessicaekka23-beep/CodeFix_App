@@ -292,6 +292,51 @@ def generate_embedding(text: str, model: str = EMBEDDING_MODEL) -> list[float] |
         return None
 
 
+def generate_embeddings(texts, model: str = EMBEDDING_MODEL) -> list[list[float]] | None:
+    """Embed a batch of texts with Ollama in a single request.
+
+    Ollama's ``/api/embed`` accepts a list of inputs and returns one vector per
+    input, which is much faster than one request per chunk. Returns ``None`` on any
+    failure (or an unexpected shape) so callers can fall back or report the error.
+
+    Args:
+        texts: Iterable of strings to embed.
+        model: Ollama embedding model name.
+
+    Returns:
+        A list with one embedding vector per input, or ``None`` on failure.
+    """
+    inputs = [t if isinstance(t, str) else str(t) for t in (texts or [])]
+    if not inputs:
+        return []
+
+    try:
+        response = requests.post(
+            OLLAMA_EMBED_URL,
+            json={"model": model, "input": inputs},
+            timeout=120,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        embeddings = data.get("embeddings")
+        if isinstance(embeddings, list) and len(embeddings) == len(inputs):
+            return embeddings
+
+        # Legacy /api/embeddings endpoint returns a single vector.
+        if isinstance(data.get("embedding"), list) and len(inputs) == 1:
+            return [data["embedding"]]
+
+        logger.warning(f"Unexpected response format from Ollama embedding API: {data}")
+        return None
+    except requests.RequestException as e:
+        logger.warning(f"Failed to generate embeddings for model '{model}': {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error generating embeddings: {e}")
+        return None
+
+
 def retrieve_relevant_chunks(query: str, collection: Any, top_k: int = RAG_TOP_K) -> list[dict[str, Any]]:
     """
     Query ChromaDB collection using embedding of query text.
@@ -314,7 +359,8 @@ def retrieve_relevant_chunks(query: str, collection: Any, top_k: int = RAG_TOP_K
     except Exception as e:
         logger.debug(f"Could not count collection items: {e}")
 
-    query_embedding = generate_embedding(query)
+    from embeddings import embed_query
+    query_embedding = embed_query(query)
     if query_embedding is None:
         logger.warning("Could not generate query embedding for retrieval.")
         return []

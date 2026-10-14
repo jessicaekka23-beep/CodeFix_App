@@ -36,6 +36,7 @@ from config import (
     check_ollama_available, get_available_ollama_models, validate_workspace_path,
 )
 from tools import apply_patch
+import embeddings
 
 BASE_DIR = Path(__file__).resolve().parent
 SAMPLE_WORKSPACE = BASE_DIR / "test_workspace"
@@ -255,7 +256,8 @@ def _do_index():
             st.toast(f"Indexed {result.get('indexed', 0)} chunks from "
                      f"{result.get('total_documents', 0)} files", icon="✅")
             if result.get("errors", 0):
-                st.sidebar.warning(f"{result['errors']} indexing errors (is `nomic-embed-text` pulled?)")
+                st.sidebar.warning(f"{result['errors']} indexing errors "
+                                   f"(embedding back-end: {embeddings.backend_description()})")
         except Exception as e:
             logger.error(f"Indexing error: {e}")
             st.sidebar.error(f"Indexing failed: {e}")
@@ -457,7 +459,9 @@ with st.sidebar:
         _do_index()
         st.rerun()
     if counts is None:
-        st.caption("Index unavailable. Check ChromaDB is installed and Ollama has `nomic-embed-text`.")
+        st.caption("Index unavailable. Check that ChromaDB is installed.")
+    else:
+        st.caption(f"Embedding back-end: {embeddings.backend_description()}.")
 
 # ── Header ────────────────────────────────────────────────
 local = st.session_state.provider == "ollama"
@@ -708,14 +712,15 @@ with tab_how:
         '<div class="flow">'
         '<div class="node">Project files</div><span class="arrow">→</span>'
         '<div class="node">Chunks<small>800 chars, overlap</small></div><span class="arrow">→</span>'
-        '<div class="node">Embeddings<small>nomic-embed-text</small></div><span class="arrow">→</span>'
+        '<div class="node">Embeddings<small>local or hashing</small></div><span class="arrow">→</span>'
         '<div class="node">ChromaDB<small>code + notes</small></div><span class="arrow">→</span>'
         '<div class="node">Retrieve<small>top-k chunks</small></div><span class="arrow">→</span>'
         '<div class="node">Agent loop<small>LLM ⇄ tools</small></div><span class="arrow">→</span>'
         '<div class="node">Analysis or diff</div></div>', unsafe_allow_html=True)
     st.markdown("""
-**RAG pipeline.** Project files are split into overlapping line-based chunks, embedded locally and stored
-in ChromaDB (`workspace_code` for your code, `reference_docs` for saved debugging notes). Before the model
+**RAG pipeline.** Project files are split into overlapping line-based chunks, then embedded with Ollama when it is
+running (otherwise a built-in hashing embedder) and stored in ChromaDB (`workspace_code` for your code,
+`reference_docs` for saved debugging notes). Before the model
 starts, your question is embedded and the closest chunks from both collections are added to the prompt. The
 agent can call `search_knowledge_base` again whenever it needs more, and approved fixes are saved as notes so
 the next similar bug retrieves them.

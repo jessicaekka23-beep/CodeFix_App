@@ -70,21 +70,25 @@ def validate_path(filepath: str, workspace_root: str) -> tuple[bool, str, Option
     try:
         workspace = Path(workspace_root).resolve()
         target = (workspace / filepath).resolve()
-
-        # Check that target is within workspace
-        if not str(target).startswith(str(workspace)):
-            return False, f"Path traversal detected: {filepath}", None
-
-        # Check for suspicious patterns
-        suspicious = ["..", "~", "$", "%", "|", ";", "&", "`"]
-        for pattern in suspicious:
-            if pattern in filepath and pattern != "..":
-                return False, f"Suspicious pattern in path: {pattern}", None
-
-        return True, "Valid path", target
-
     except Exception as e:
         return False, f"Path validation error: {e}", None
+
+    # Containment is a path-operation check, not a string-prefix check: a sibling
+    # directory named like "workspace-evil" shares the string prefix but is outside
+    # the root. relative_to() compares real path components and raises if it escapes.
+    try:
+        target.relative_to(workspace)
+    except ValueError:
+        return False, f"Path traversal detected: {filepath}", None
+
+    # Check for shell metacharacters. ".." is allowed here only because the path is
+    # already proven to stay inside the workspace above.
+    suspicious = ["~", "$", "%", "|", ";", "&", "`"]
+    for pattern in suspicious:
+        if pattern in filepath:
+            return False, f"Suspicious pattern in path: {pattern}", None
+
+    return True, "Valid path", target
 
 
 def _should_exclude_dir(dir_name: str) -> bool:

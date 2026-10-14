@@ -25,10 +25,11 @@ st.set_page_config(page_title="CodePilot Local", layout="wide")
 
 from config import (
     AGENT_MAX_ITERATIONS, AGENT_MAX_TOOL_CALLS, AVAILABLE_MODELS, CLOUD_GROQ_MODELS, CLOUD_OPENAI_MODELS, DEFAULT_MODEL,
-    EMBEDDING_MODEL, MAX_FIX_ATTEMPTS, RAG_CHUNK_OVERLAP, RAG_CHUNK_SIZE, RAG_TOP_K,
+    MAX_FIX_ATTEMPTS, RAG_CHUNK_OVERLAP, RAG_CHUNK_SIZE, RAG_TOP_K,
     check_ollama_available, get_available_ollama_models, validate_workspace_path,
 )
 from demo_data import STAGE_LABELS, STAGES, IndexRun, project_point
+import embeddings
 from pipeline_runner import STEPS, PipelineRun
 from tools import apply_patch
 from xp_theme import THEME_ON, hero_html, progress_html, taskbar_html, theme_css, title_bar
@@ -90,8 +91,8 @@ def _kb_count():
 def _embed_text(text):
     """Embed a query the same way the index embedded the chunks (for placing it on the map)."""
     try:
-        import rag
-        return rag.generate_embedding(text)
+        import embeddings
+        return embeddings.embed_query(text)
     except Exception:
         return None
 
@@ -136,7 +137,7 @@ with st.sidebar:
     valid, msg = validate_workspace_path(ws_input) if ws_input else (False, "")
     workspace = str(Path(ws_input).expanduser().resolve()) if valid else ""
     st.caption(f"Using {Path(workspace).name}" if workspace else (msg or "Enter a project folder"))
-    st.caption(f"Embeddings always come from local Ollama (`{EMBEDDING_MODEL}`), even with a cloud engine.")
+    st.caption(f"Embeddings: {embeddings.backend_description()}.")
 
 
 # ── Helpers ───────────────────────────────────────────────
@@ -307,7 +308,7 @@ def _index_nodes(idx):
 
 def _live_index_text(idx):
     return (f"{progress_html()}\n\n**Indexing** - {idx.elapsed():.0f}s"
-            + (" (embedding every chunk with Ollama is the slow part)" if idx.stage == "store" else "")
+            + (" (embedding every chunk is the slow part)" if idx.stage == "store" else "")
             + "\n\n" + flow_html(_index_nodes(idx)))
 
 
@@ -376,7 +377,7 @@ def _show_index(idx):
         if not e:
             st.caption("Not reached yet.")
         else:
-            st.caption(f"An embedding model (`{EMBEDDING_MODEL}`, running in Ollama) reads a chunk and outputs a list of {e['dim']} numbers, "
+            st.caption(f"The embedding back-end ({embeddings.backend_description()}) reads a chunk and outputs a list of {e['dim']} numbers, "
                        "a fingerprint of what the code is about. Here is one real chunk and its fingerprint:")
             st.caption(f"{e['source']} lines {e['lines']}")
             st.code(e["text"], language="python")
@@ -464,7 +465,7 @@ def _flow_nodes(run, idx):
 def _explainer():
     st.markdown(
         f"""
-**1. Index (once per project).** Your code is cut into chunks of about {RAG_CHUNK_SIZE} characters (overlap {RAG_CHUNK_OVERLAP}). `{EMBEDDING_MODEL}` turns each chunk into a vector (a list of numbers capturing its meaning), and ChromaDB stores them on disk.
+**1. Index (once per project).** Your code is cut into chunks of about {RAG_CHUNK_SIZE} characters (overlap {RAG_CHUNK_OVERLAP}). An embedding model turns each chunk into a vector (a list of numbers capturing its meaning), and ChromaDB stores them on disk. Embeddings use Ollama when it is running and otherwise fall back to a built-in hashing embedder, so the demo also works when hosted (no Ollama).
 
 **2. Retrieve (RAG).** Before the agent's first LLM call, your prompt is embedded the same way. ChromaDB returns the closest chunks (up to 3 from your code, 2 from notes of past fixes) and they are pasted into the agent's prompt. The model answers with real code in front of it instead of guessing.
 

@@ -30,7 +30,7 @@ def test_decorations_never_capture_clicks():
 def test_light_and_dark_variants_differ_but_share_structure():
     light, dark = t.theme_css(False), t.theme_css(True)
     assert light != dark
-    assert "--face: #f8f3ea" in light and "--face: #262a47" in dark
+    assert "--face: #faf5ec" in light and "--face: #2a2635" in dark
     assert "/*VARS*/" not in light and "/*VARS*/" not in dark
     assert "--scheme: light" in light and "--scheme: dark" in dark
     for css in (light, dark):

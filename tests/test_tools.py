@@ -79,6 +79,26 @@ def test_validate_path_traversal(workspace):
     assert resolved is None
 
 
+def test_validate_path_rejects_sibling_sharing_the_name_prefix(workspace):
+    """Regression: a string startswith() check let '../workspace-evil/x.py' through,
+    because '...\\workspace-evil' shares the '...\\workspace' prefix but is outside it."""
+    evil = workspace.parent / (workspace.name + "-evil")
+    evil.mkdir()
+    (evil / "x.py").write_text("print('pwned')", encoding="utf-8")
+
+    valid, msg, resolved = validate_path(f"../{evil.name}/x.py", str(workspace))
+    assert valid is False
+    assert resolved is None
+    assert "traversal" in msg.lower()
+
+
+def test_validate_path_allows_dotdot_that_stays_inside(workspace):
+    """'..' is only a problem when it escapes: src/../notes.md is still in the root."""
+    valid, _msg, resolved = validate_path("src/../notes.md", str(workspace))
+    assert valid is True
+    assert resolved is not None and resolved.name == "notes.md"
+
+
 def test_validate_path_empty(workspace):
     """Test validate_path rejects empty paths."""
     valid, msg, resolved = validate_path("", str(workspace))

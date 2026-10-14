@@ -244,23 +244,27 @@ def _wallpaper_uri():
 
 PALETTES = {
     "light": dict(
-        title_top="#b5d9ff", title_bot="#86b7f7", title_ink="#1d2b6b", frame="#6f98e8", face="#f8f3ea", face2="#ffffff",
-        ink="#2b2b45", navy="#2d3f8f", line="#8fa3da", sel="#7fa8f0", sel_ink="#ffffff", shadow="rgba(70,80,140,.38)",
-        side_a="#e3edff", side_b="#ece3ff", btn_top="#ffffff", btn_bot="#e4dcf3", btn_line="#4a5a9a",
-        go_top="#d4f5c4", go_bot="#94dc92", go_line="#4f9a5a", go_ink="#1d4a2a",
-        chip="#ffffff", muted="#4d4f70", code_bg="#fffdf7", exp_a="#ffffff", exp_b="#d9e4ff",
-        bar_a="#c4defc", bar_b="#8dbcf6", bar_line="#5b86d6", tray_a="#a9d3ff", tray_b="#8bbdf5", start_ink="#1d4a2a",
-        task_a="#6f9fe8", task_b="#9bc2f6", task_ink="#ffffff", prog="#8fe0a0", scheme="light",
-        t_rag="#e6d9ff", t_llm="#d4e8ff", t_tool="#d3f5e0", t_patch="#fff0b8", t_ok="#bff0c8", t_warn="#ffd3da", t_start="#f1e6d4"),
+        title_top="#d3e2ff", title_bot="#b6cbf5", title_ink="#2b3566", frame="#cbbfe0", face="#faf5ec", face2="#fffdf8",
+        ink="#33303f", navy="#3f4d7a", line="#e4d8c4", sel="#b9cdf0", sel_ink="#ffffff", shadow="rgba(120,102,72,.16)",
+        side_a="#fbf5ec", side_b="#f3ecf6", btn_top="#ffffff", btn_bot="#f0e9dc", btn_line="#cbbfe0",
+        go_top="#dcefcb", go_bot="#b6dd9f", go_line="#86b06f", go_ink="#2f4a2b",
+        chip="#fffdf8", muted="#6f6a5e", code_bg="#fffaf0", exp_a="#fffdf8", exp_b="#f0eaf4",
+        bar_a="#d3e2ff", bar_b="#b6cbf5", bar_line="#cbbfe0", tray_a="#f0e9dc", tray_b="#e2d8ca", start_ink="#2f4a2b",
+        task_a="#b6cbf5", task_b="#d3e2ff", task_ink="#2b3566", prog="#a9d79a", scheme="light",
+        t_rag="#e9ddf7", t_llm="#dbe8ff", t_tool="#d9f0d5", t_patch="#fff0b8", t_ok="#c7ecd0", t_warn="#ffd9de", t_start="#f2e7d6",
+        radius="16px", radius_sm="10px", card_line="#eadfcd", card_shadow="0 10px 26px rgba(120,102,72,.15)",
+        side_grad="linear-gradient(180deg,#fbf5ec 0%,#f3ecf6 100%)"),
     "dark": dict(
-        title_top="#6f7fe0", title_bot="#4c5cbd", title_ink="#f6f2ff", frame="#7f8cf0", face="#262a47", face2="#161931",
-        ink="#ebe9ff", navy="#c3ccff", line="#6672b5", sel="#6f7fe0", sel_ink="#ffffff", shadow="rgba(0,0,0,.6)",
-        side_a="#1f2340", side_b="#2b2354", btn_top="#41467a", btn_bot="#2c3058", btn_line="#a3aef5",
-        go_top="#a3e8b6", go_bot="#62bc7d", go_line="#2f7a47", go_ink="#0f2f1a",
-        chip="#161931", muted="#b4b8e0", code_bg="#121428", exp_a="#2b2f55", exp_b="#3a3f78",
-        bar_a="#4c5cbd", bar_b="#2f3a8c", bar_line="#8f9bf5", tray_a="#3a4398", tray_b="#2b3278", start_ink="#0f2f1a",
-        task_a="#2f3a8c", task_b="#4d5cc4", task_ink="#f6f2ff", prog="#8fe0a0", scheme="dark",
-        t_rag="#51449a", t_llm="#33509a", t_tool="#2c6a52", t_patch="#7a6a2a", t_ok="#2f7a47", t_warn="#8f3a52", t_start="#44476e"),
+        title_top="#8a79c9", title_bot="#6a5aa8", title_ink="#f7f3ff", frame="#5b5170", face="#2a2635", face2="#211e2a",
+        ink="#efe9df", navy="#d8c7e8", line="#453e56", sel="#8a79c9", sel_ink="#ffffff", shadow="rgba(0,0,0,.5)",
+        side_a="#262231", side_b="#2c2439", btn_top="#3a3448", btn_bot="#2b2637", btn_line="#6b6183",
+        go_top="#b6dd9f", go_bot="#7cb063", go_line="#5c8a4a", go_ink="#16280f",
+        chip="#211e2a", muted="#b0a89c", code_bg="#1a1722", exp_a="#332d42", exp_b="#43395c",
+        bar_a="#6a5aa8", bar_b="#4a3f80", bar_line="#6b6183", tray_a="#3a3448", tray_b="#2b2637", start_ink="#16280f",
+        task_a="#4a3f80", task_b="#6a5aa8", task_ink="#f7f3ff", prog="#a9d79a", scheme="dark",
+        t_rag="#5b4a8f", t_llm="#3a4f8f", t_tool="#3a6b4a", t_patch="#7a6a2a", t_ok="#3f7a4f", t_warn="#8f4a58", t_start="#5a4a3a",
+        radius="16px", radius_sm="10px", card_line="#403950", card_shadow="0 12px 28px rgba(0,0,0,.5)",
+        side_grad="linear-gradient(180deg,#262231 0%,#2c2439 100%)"),
 }
 
 
@@ -271,7 +275,11 @@ def theme_css(dark: bool = False) -> str:
 @lru_cache(maxsize=2)
 def _theme_css(mode: str) -> str:
     wall = _wallpaper_uri()
-    desktop = (f"{wall} center / cover no-repeat fixed" if wall else f"{_uri(_scene_svg(mode))} center bottom / cover no-repeat fixed")
+    base = (f"{wall} center / cover no-repeat fixed" if wall
+            else f"{_uri(_scene_svg(mode))} center bottom / cover no-repeat fixed")
+    wash = ("linear-gradient(rgba(255,250,240,.34), rgba(250,244,236,.34))" if mode == "light"
+            else "linear-gradient(rgba(28,24,34,.46), rgba(28,24,34,.46))")
+    desktop = f"{wash} center / cover no-repeat fixed, {base}"
     icons = "".join(f".xp-ico.{k} {{background-image: {_uri(v)};}}\n" for k, v in ICONS.items())
     variables = "".join(f"--{k.replace('_', '-')}: {v}; " for k, v in PALETTES[mode].items())
     css = CSS.replace("/*VARS*/", variables).replace("/*DESKTOP*/", desktop).replace("/*ICONS*/", icons)
@@ -476,6 +484,68 @@ CSS = r"""
 
 @media (prefers-reduced-motion: reduce) {.xp-prog::after {animation: none; left: 0; width: 100%;} .xp-node.active, .xp-wait .xp-evbody {animation: none;}}
 @media (max-width: 760px) {.xp-brand {font-size: 1.4rem;} .xp-task {display: none;}}
+
+/* ── Retro-Pinterest polish: softer cards, calmer chrome, more breathing room ── */
+.block-container {max-width: 1080px; padding-top: 2.4rem; padding-bottom: 108px;}
+.stApp [data-testid="stMarkdownContainer"] p {line-height: 1.55;}
+
+/* cards keep their pixel identity, but round off and drop the hard offset shadow */
+[class*="st-key-xpwin"], .xp-hero {border: 2px solid var(--card-line) !important; border-radius: var(--radius) !important;
+    box-shadow: var(--card-shadow) !important; margin-bottom: 20px;}
+[class*="st-key-xpwin"] {padding: 0 18px 18px;}
+.xp-hero {padding: 0;}
+.xp-title {height: 36px; margin: 0 -18px 12px; padding: 0 8px 0 14px; border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0; background: linear-gradient(180deg, var(--title-top), var(--title-bot));
+    box-shadow: none; letter-spacing: .5px;}
+.xp-hero .xp-title {margin: 0;}
+.xp-title.flat {margin: 0 0 14px; border: 2px solid var(--card-line); border-radius: var(--radius-sm);}
+.xp-hero-body {padding: 16px 20px 16px;}
+.xp-brand {text-shadow: 2px 2px 0 var(--title-top);}
+.xp-btns i {width: 18px; height: 18px; border-width: 0; border-radius: 6px; box-shadow: none;
+    background: rgba(255,255,255,.45); font-size: 11px;}
+.xp-btns i.x {background: #ffc2c9;}
+
+/* chips: pastel pills */
+.xp-chip {border: 2px solid var(--card-line); border-radius: 999px; box-shadow: none; padding: 3px 12px 3px 10px;}
+.xp-chip::before {border: 0; border-radius: 999px;}
+
+/* buttons: pill shaped, gentle lift on hover */
+.stApp [data-testid^="stBaseButton"] {border-radius: 999px !important; padding-left: 1.1rem !important; padding-right: 1.1rem !important;
+    transition: transform .12s ease, box-shadow .12s ease;}
+.stApp [data-testid="stBaseButton-secondary"] {border: 2px solid var(--card-line) !important; background: var(--face2) !important;
+    box-shadow: 0 2px 0 var(--shadow) !important;}
+.stApp [data-testid="stBaseButton-secondary"]:hover {transform: translateY(-1px); box-shadow: 0 5px 12px var(--shadow) !important;}
+.stApp [data-testid="stBaseButton-secondary"]:active {transform: translateY(1px);}
+.stApp [data-testid="stBaseButton-primary"] {border: 2px solid var(--go-line) !important;
+    background: linear-gradient(180deg, var(--go-top), var(--go-bot)) !important; box-shadow: 0 3px 0 rgba(0,0,0,.12) !important;}
+.stApp [data-testid="stBaseButton-primary"]:hover {transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,.18) !important;}
+.stApp [data-testid="stBaseButton-primary"]:active {transform: translateY(1px);}
+
+/* inputs: softly rounded, quiet focus ring */
+.stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"], .stApp [data-baseweb="textarea"], .stApp [data-baseweb="select"] > div {
+    border-radius: 12px !important; border-width: 1.5px !important; box-shadow: none !important;}
+.stApp [data-baseweb="input"]:focus-within, .stApp [data-baseweb="textarea"]:focus-within {
+    border-color: var(--frame) !important; box-shadow: 0 0 0 3px rgba(160,150,210,.28) !important;}
+[data-baseweb="popover"] [data-baseweb="menu"], [data-baseweb="popover"] ul {border-radius: 12px !important; border-width: 1.5px !important;}
+
+/* surfaces: alerts, code, expanders and the demo widgets share one soft radius */
+.stApp [data-testid="stAlert"], .stApp [data-testid="stCode"], .stApp [data-testid="stCodeBlock"],
+.stApp [data-testid="stExpander"] details, .xp-table, .xp-map, .xp-vec, .xp-hit, .xp-seed pre, .xp-trace pre,
+.xp-thought, .xp-prog {border-radius: var(--radius-sm) !important; border-width: 1.5px !important; box-shadow: none !important;}
+.stApp [data-testid="stExpander"] summary {border-radius: var(--radius-sm) var(--radius-sm) 0 0;}
+.stApp [data-testid="stDataFrame"], .stApp [data-testid="stTable"] {border-radius: var(--radius-sm); overflow: hidden;}
+.xp-chunktrack {border-radius: 6px;}
+.xp-rank {border-radius: 6px;} .xp-from {border-radius: 6px;}
+
+/* tabs: rounded tops that match the cards */
+.stApp button[data-baseweb="tab"] {border-radius: 12px 12px 0 0; border-width: 1.5px;}
+
+/* sidebar + taskbar: tinted panels instead of saturated bars */
+[data-testid="stSidebar"], [data-testid="stSidebarContent"] {background: var(--side-grad) !important;}
+[data-testid="stSidebar"] {border-right: 2px solid var(--card-line);}
+.xp-taskbar {height: 42px; box-shadow: 0 -6px 18px rgba(0,0,0,.08);}
+.xp-task {border-radius: 8px;}
+.xp-start {border-top-right-radius: 8px; border-bottom-right-radius: 8px;}
 """
 
 

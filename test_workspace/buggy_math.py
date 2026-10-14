@@ -10,10 +10,8 @@ def calculate_average(numbers):
     BUG: Off-by-one error - divides by len+1 instead of len.
     Also fails on empty input.
     """
-    if not numbers:
-        raise ZeroDivisionError("Cannot calculate average of an empty list")
     total = sum(numbers)
-    return total / len(numbers)
+    return total / (len(numbers) + 1)
 
 
 def find_max(items):

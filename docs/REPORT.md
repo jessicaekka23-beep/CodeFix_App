@@ -11,7 +11,7 @@
 
 As software projects expand in complexity, developer cognitive load in diagnosing bugs, interpreting error tracebacks, and understanding legacy codebases increases dramatically. While commercial cloud-based Large Language Model (LLM) coding assistants offer powerful code reasoning capabilities, transmitting proprietary codebases and sensitive company intellectual property to remote cloud endpoints introduces substantial privacy, compliance, and regulatory liabilities. 
 
-This paper introduces **CodePilot Local**, an entirely local, privacy-preserving agentic Generative AI software engineering assistant designed to operate autonomously on commodity hardware. CodePilot Local integrates an on-device Retrieval-Augmented Generation (RAG) architecture powered by ChromaDB and `nomic-embed-text` with a bounded multi-step tool-using agent core powered by `qwen2.5-coder:7b`. The system implements two distinct agentic workflows: (1) dynamic, evidence-grounded code investigation and bug diagnosis, and (2) automated fix generation with isolated sandbox validation and human-in-the-loop diff authorization. Operating without cloud APIs, external network dependencies, or telemetry, CodePilot Local enforces path traversal security, execution containment via Docker or disposable subenvironments, and rigorous audit trails. Evaluation across a 55-test suite and a synthetic benchmark repository demonstrates reliable multi-turn tool calling, verifiable retrieval grounding, and secure patch validation on a standard 16 GB RAM developer workstation.
+This paper introduces **CodePilot Local**, an entirely local, privacy-preserving agentic Generative AI software engineering assistant designed to operate autonomously on commodity hardware. CodePilot Local integrates an on-device Retrieval-Augmented Generation (RAG) architecture powered by ChromaDB with Ollama `nomic-embed-text` (and a dependency-free hashing fallback) and a bounded multi-step tool-using agent core powered by `qwen2.5-coder:7b`. The system implements two distinct agentic workflows: (1) dynamic, evidence-grounded code investigation and bug diagnosis, and (2) automated fix generation with isolated sandbox validation and human-in-the-loop diff authorization. Operating without cloud APIs, external network dependencies, or telemetry, CodePilot Local enforces path traversal security, execution containment via Docker or disposable subenvironments, and rigorous audit trails. Evaluation across a 104-test unit suite (plus optional live-model integration tests) and a synthetic benchmark repository demonstrates reliable multi-turn tool calling, verifiable retrieval grounding, and secure patch validation on a standard 16 GB RAM developer workstation.
 
 ---
 
@@ -32,7 +32,7 @@ CodePilot Local directly addresses these challenges by establishing an autonomou
 
 The principal objectives of the CodePilot Local project are:
 
-- **Flexible Inference:** Support on-device LLM generation through Ollama by default, with an explicitly selected optional Groq Cloud mode for faster text generation. RAG embeddings remain local through Ollama; cloud mode sends prompts and retrieved code context to Groq and therefore is not suitable for secrets or code that must remain private.
+- **Flexible Inference:** Support on-device LLM generation through Ollama by default, with an explicitly selected optional Groq Cloud mode for faster text generation. RAG embeddings also run locally through Ollama, and fall back to a dependency-free hashing embedder when Ollama is not installed (so the hosted demo still retrieves); cloud mode sends prompts and retrieved code context to Groq and therefore is not suitable for secrets or code that must remain private.
 - **Genuine Local RAG Implementation:** Build a persistent semantic search engine across project source files and documentation, preserving file paths, line ranges, and chunk metadata without producing duplicate entries during incremental re-indexing.
 - **Agentic Task 1 (Investigation & Debugging):** Construct a multi-step agent workflow capable of dynamically inspecting workspaces, reading relevant code blocks, searching symbol patterns, and gathering retrieved knowledge before delivering a cited diagnosis.
 - **Agentic Task 2 (Automated Fix Generation & Validation):** Develop an autonomous remediation pipeline that formulates unified diff proposals, applies candidate fixes to disposable sandbox environments, executes pytest validation suites, iteratively refines failed solutions, and mandates explicit user approval before applying changes to host files.
@@ -86,7 +86,7 @@ graph TD
         Chroma --- Col1[workspace_code]
         Chroma --- Col2[reference_docs]
         Indexer[Workspace Indexer] --> LineChunker[Line-Preserving Chunker]
-        LineChunker --> OllamaEmbed[Ollama: nomic-embed-text]
+        LineChunker --> OllamaEmbed[Embeddings: Ollama nomic-embed-text or hashing fallback]
         OllamaEmbed --> Chroma
     end
 
@@ -132,8 +132,8 @@ Standard text chunkers break tokens arbitrarily across line boundaries, disrupti
   $$\text{Metadata} = \{\text{source}: \text{file\_path},\, \text{start\_line}: N,\, \text{end\_line}: M,\, \text{chunk\_id}: \text{hash}\}$$
 
 ### 5.3 Local Vector Embeddings and Deduplication
-Embeddings are computed on-device using the `nomic-embed-text` model via Ollama's HTTP endpoint (`/api/embed`).
-- **Vector Dimension:** 768-dimensional dense vectors.
+Embeddings are computed on-device using the `nomic-embed-text` model via Ollama's HTTP endpoint (`/api/embed`). When Ollama is not reachable (for example in a hosted deployment) the app falls back to a dependency-free hashing embedder, so indexing and retrieval never require a running model server.
+- **Vector Dimension:** 768-dimensional dense vectors with Ollama; 512 with the hashing fallback.
 - **Deduplication Strategy:** Prior to insertion into ChromaDB, an MD5 hash of `f"{source}:{chunk_text}"` is computed as the unique document identifier. Existing identifiers are queried and skipped, guaranteeing idempotent re-indexing.
 - **Dual Collections:**
   - `workspace_code`: Contains active project source code and internal documentation.
@@ -253,11 +253,11 @@ flowchart TD
 
 | Layer | Component | Selected Technology | Technical Rationale |
 | :--- | :--- | :--- | :--- |
-| **User Interface** | Frontend Application | Streamlit (v1.31+) | Rapid reactive dashboarding with native tabs, diff code blocks, and audio widgets. |
+| **User Interface** | Frontend Application | Streamlit (v1.46+) | Rapid reactive dashboarding with native tabs, diff code blocks, and keyed themed containers. |
 | **LLM Runtime** | Local and optional cloud inference | Ollama plus optional Groq GPT-OSS API | Ollama supports private local generation; Groq is an opt-in faster mode with an explicit data-sharing trade-off. |
 | **Primary LLM** | Code Reasoning Engine | `qwen2.5-coder:7b` | Top-tier 7B coding model with native structured tool-calling capabilities. |
 | **Fallback LLMs** | Low-Memory Models | `llama3.2:3b`, `llama3.2:1b` | Operates within tight memory budgets (3–4 GB available RAM). |
-| **Embedding Model** | Vector Representation | `nomic-embed-text` | High-accuracy 768-dim code/text embeddings with 8192 token context window. |
+| **Embedding Model** | Vector Representation | `nomic-embed-text` (Ollama), hashing fallback | High-accuracy 768-dim code/text embeddings with 8192 token context window; a dependency-free hashing embedder keeps RAG working when Ollama is unavailable. |
 | **Vector Database** | Persistent Vector Store | ChromaDB (v1.5+) | Embedded zero-server vector store with SQLite metadata storage and cosine similarity. |
 | **Test Sandboxing** | Execution Isolation | Docker / Python subprocess | Hardware-level memory/CPU/network isolation with disposable directory fallback. |
 | **Test Framework** | Test Suite | pytest (v9.1+) | Industry standard test runner supporting fixtures, markers, and parameterized testing. |
@@ -289,7 +289,7 @@ Every tool invocation, path validation, patch proposal, test execution, and user
 ## 10. Empirical Testing Methodology and Actual Results
 
 The system was verified using a two-tier testing methodology:
-1. **System & Module Verification Suite:** 55 automated unit and integration tests in `tests/`.
+1. **System & Module Verification Suite:** 109 collected tests in `tests/` (104 fast unit tests, plus 5 live-model integration tests that run only when Ollama is available).
 2. **Synthetic Buggy Workspace:** A realistic multi-module Python project in `test_workspace/` containing 7 intentional algorithmic, boundary, and typing defects.
 
 ### 10.1 Automated Test Suite Results
@@ -298,68 +298,19 @@ The system was verified using a two-tier testing methodology:
 ============================= test session starts =============================
 platform win32 -- Python 3.14.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Python314\python.exe
 cachedir: .pytest_cache
-rootdir: C:\Users\calli\OneDrive\Desktop\llmlocal-main\llmlocal-main
+rootdir: C:\Users\calli\OneDrive\Desktop\CodePilot-Local-v5-demo\CodePilot-Local
 configfile: pytest.ini
-plugins: anyio-3.7.1
-collected 55 items
+plugins: anyio-4.15.1
+collected 109 items / 5 deselected / 104 selected
 
-tests/test_agent.py::test_parse_agent_action_tool_call_prefix PASSED     [  1%]
-tests/test_agent.py::test_parse_agent_action_json_block_extraction PASSED [  3%]
-tests/test_agent.py::test_parse_agent_action_final_answer PASSED         [  5%]
-tests/test_agent.py::test_parse_agent_action_long_text_fallback PASSED   [  7%]
-tests/test_agent.py::test_parse_agent_action_malformed PASSED            [  9%]
-tests/test_agent.py::test_classify_intent_investigate PASSED             [ 10%]
-tests/test_agent.py::test_classify_intent_fix PASSED                     [ 12%]
-tests/test_agent.py::test_classify_intent_chat PASSED                    [ 14%]
-tests/test_agent.py::test_classify_intent_legacy_patterns PASSED         [ 16%]
-tests/test_agent.py::test_system_prompts_non_empty PASSED                [ 18%]
-tests/test_agent.py::test_tool_definitions_list PASSED                   [ 20%]
-tests/test_agent.py::test_call_llm_integration PASSED                    [ 21%]
-tests/test_config.py::test_available_models PASSED                       [ 23%]
-tests/test_config.py::test_default_model PASSED                          [ 25%]
-tests/test_config.py::test_embedding_model PASSED                        [ 27%]
-tests/test_config.py::test_agent_max_iterations PASSED                   [ 29%]
-tests/test_config.py::test_rag_chunk_settings PASSED                     [ 30%]
-tests/test_config.py::test_supported_extensions PASSED                   [ 32%]
-tests/test_config.py::test_excluded_dirs PASSED                          [ 34%]
-tests/test_config.py::test_validate_workspace_path_valid PASSED          [ 36%]
-tests/test_config.py::test_validate_workspace_path_nonexistent PASSED    [ 38%]
-tests/test_config.py::test_validate_workspace_path_file PASSED           [ 40%]
-tests/test_config.py::test_validate_workspace_path_empty PASSED          [ 41%]
-tests/test_config.py::test_check_ollama_available_returns_bool PASSED    [ 43%]
-tests/test_config.py::test_ollama_live_service PASSED                    [ 45%]
-tests/test_rag.py::test_load_documents_success PASSED                    [ 47%]
-tests/test_rag.py::test_load_documents_excludes_pycache PASSED           [ 49%]
-tests/test_rag.py::test_load_documents_skips_large_files PASSED          [ 50%]
-tests/test_rag.py::test_load_documents_nonexistent_directory PASSED      [ 52%]
-tests/test_rag.py::test_chunk_document_basic PASSED                      [ 54%]
-tests/test_rag.py::test_chunk_document_overlap_behavior PASSED           [ 56%]
-tests/test_rag.py::test_chunk_document_empty PASSED                      [ 58%]
-tests/test_rag.py::test_chunk_all_documents PASSED                       [ 60%]
-tests/test_rag.py::test_build_rag_context_mock PASSED                    [ 61%]
-tests/test_rag.py::test_build_rag_context_empty PASSED                   [ 63%]
-tests/test_rag.py::test_generate_embedding_live PASSED                   [ 65%]
-tests/test_tools.py::test_validate_path_valid PASSED                     [ 67%]
-tests/test_tools.py::test_validate_path_traversal PASSED                 [ 69%]
-tests/test_tools.py::test_validate_path_empty PASSED                     [ 70%]
-tests/test_tools.py::test_list_files_success PASSED                      [ 72%]
-tests/test_tools.py::test_list_files_extension_filtering PASSED          [ 74%]
-tests/test_tools.py::test_list_files_nonexistent_directory PASSED        [ 76%]
-tests/test_tools.py::test_read_file_success PASSED                       [ 78%]
-tests/test_tools.py::test_read_file_line_range PASSED                    [ 80%]
-tests/test_tools.py::test_read_file_binary_rejection PASSED              [ 81%]
-tests/test_tools.py::test_read_file_nonexistent PASSED                   [ 83%]
-tests/test_tools.py::test_search_code_matches PASSED                     [ 85%]
-tests/test_tools.py::test_search_code_empty_pattern PASSED               [ 87%]
-tests/test_tools.py::test_search_code_case_sensitivity PASSED            [ 89%]
-tests/test_tools.py::test_get_file_metadata_python_file PASSED           [ 90%]
-tests/test_tools.py::test_propose_patch PASSED                           [ 92%]
-tests/test_tools.py::test_apply_patch_rejected_when_not_approved PASSED  [ 94%]
-tests/test_tools.py::test_apply_patch_success_when_approved PASSED       [ 96%]
-tests/test_tools.py::test_execute_tool_unknown PASSED                    [ 98%]
-tests/test_tools.py::test_execute_tool_valid PASSED                      [100%]
+tests/test_agent.py::test_parse_agent_action_tool_call_prefix PASSED     [  0%]
+tests/test_agent.py::test_parse_agent_action_json_block_extraction PASSED [  1%]
+tests/test_agent.py::test_parse_agent_action_final_answer PASSED         [  2%]
+...                                                                     (output abridged)
+tests/test_xp_theme.py::test_light_and_dark_variants_differ_but_share_structure PASSED [ 99%]
+tests/test_xp_theme.py::test_pixel_fonts_and_scenes PASSED               [100%]
 
-============================= 55 passed in 55.61s =============================
+====================== 104 passed, 5 deselected in 5.51s ======================
 ```
 
 ### 10.2 Synthetic Workspace Baseline
@@ -395,7 +346,7 @@ While CodePilot Local meets all core requirements, several operational limitatio
 
 ## 12. Conclusion
 
-CodePilot Local demonstrates that a sophisticated, privacy-preserving GenAI coding assistant can operate entirely on local commodity hardware without compromising capability. By coupling a bounded agent loop with a local ChromaDB RAG pipeline, the system delivers verifiable code investigation and automated fix generation with strict sandbox isolation and human-in-the-loop validation. The project satisfies all requirements of the university assignment, validated by a comprehensive 55-test automated test suite and an empirical benchmark repository.
+CodePilot Local demonstrates that a sophisticated, privacy-preserving GenAI coding assistant can operate entirely on local commodity hardware without compromising capability. By coupling a bounded agent loop with a local ChromaDB RAG pipeline, the system delivers verifiable code investigation and automated fix generation with strict sandbox isolation and human-in-the-loop validation. The project satisfies all requirements of the university assignment, validated by a comprehensive 104-test automated test suite and an empirical benchmark repository.
 
 ---
 

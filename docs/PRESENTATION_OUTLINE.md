@@ -35,7 +35,7 @@
 
 - **Flexible Inference:**
   - Local generation via Ollama, or optional Groq GPT-OSS 20B/120B cloud generation.
-  - RAG embeddings remain local via `nomic-embed-text`; cloud mode sends prompts and retrieved code context to Groq.
+  - RAG embeddings run locally via `nomic-embed-text`, or a built-in hashing embedder when Ollama is unavailable; cloud mode sends prompts and retrieved code context to Groq.
 - **Genuine Local RAG Architecture:**
   - Line-preserving code chunking, metadata tracking, and ChromaDB vector persistence with MD5 deduplication.
 - **Two Distinct Agentic Workflows:**
@@ -51,7 +51,7 @@
 - **High-Level Subsystems:**
   - **Presentation Layer:** Streamlit UI with multi-tab layout, live model switching, and diff visualizer.
   - **Agent Core:** Bounded tool loop with dynamic tool selection, action parsing, and iteration limits.
-  - **RAG Subsystem:** File scanner, line chunker, Ollama embedder, and ChromaDB dual collections.
+  - **RAG Subsystem:** File scanner, line chunker, embedding back-end (Ollama or hashing fallback), and ChromaDB dual collections.
   - **Execution & Sandbox:** Canonical path validator, Docker/subprocess test runner, and automated backup engine.
 - **Visual:** Architectural pipeline diagram (UI $\rightarrow$ Agent Loop $\leftrightarrow$ Local Ollama $\leftrightarrow$ Tool Suite $\leftrightarrow$ ChromaDB).
 
@@ -66,7 +66,7 @@
   - Avoids syntax breaks by splitting on line boundaries (800 character window, 200 character overlap).
   - Embeds precise file path, start line, and end line metadata into every chunk.
 - **Local Embeddings & Deduplication:**
-  - On-device embedding with `nomic-embed-text` (768-dimensional vectors).
+  - On-device embedding with `nomic-embed-text` (768-dimensional vectors), with a dependency-free hashing embedder (512-dimensional) as a fallback when Ollama is unavailable.
   - Deterministic MD5 IDs ensure zero chunk duplication across re-indexing runs.
 - **Dual Collections:**
   - `workspace_code` (project source & documentation) vs. `reference_docs` (debugging notes).
@@ -101,11 +101,11 @@
 
 ## Slide 8: Technology Stack & Memory Efficiency
 
-- **Frontend:** Streamlit 1.31+
+- **Frontend:** Streamlit 1.46+
 - **LLM Engine:** Ollama local daemon or optional Groq GPT-OSS cloud API
 - **Primary Coding Model:** `qwen2.5-coder:7b` (4.7 GB)
 - **Low-Memory Fallbacks:** `llama3.2:3b` (2.0 GB), `llama3.2:1b` (1.3 GB)
-- **Embedding Model:** `nomic-embed-text` (274 MB)
+- **Embedding Model:** `nomic-embed-text` (274 MB), or the built-in hashing embedder when Ollama is absent
 - **Vector Database:** ChromaDB 1.5+ (persistent SQLite store)
 - **Sandboxing:** Docker Desktop (read-only, 512 MB memory ceiling, dropped capabilities)
 - **Resource Footprint:** Operates smoothly within 16 GB DDR4 RAM workstation constraints.
@@ -115,8 +115,8 @@
 ## Slide 9: Verification, Testing Results & Demonstration
 
 - **Comprehensive Automated Test Suite:**
-  - **Total Tests:** 55 passed in 55.6 seconds.
-  - **Unit Tests:** 50 tests verifying config, path traversal guards, line chunker, tool execution, and action parser.
+  - **Total Tests:** 104 unit tests passed (109 collected; the 5 live-model integration tests are deselected when Ollama is absent) in ~5.5 seconds.
+  - **Unit Tests:** 104 tests covering config, path traversal guards (including the sibling-prefix escape), the line chunker, tool execution, the demo/index views, embeddings, and the action parser.
   - **Live Integration Tests:** 5 tests validating live Ollama inference, embedding generation, and vector retrieval.
 - **Synthetic Buggy Workspace Evaluation:**
   - Project repository with 7 intentional bugs across mathematical and string modules.

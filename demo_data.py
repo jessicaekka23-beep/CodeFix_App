@@ -64,8 +64,11 @@ def _default_chunker(docs):
 
 
 def _default_embedder(text):
-    import rag
-    return rag.generate_embedding(text)
+    import embeddings
+    try:
+        return embeddings.embed_one(text)
+    except embeddings.EmbeddingError:
+        return None
 
 
 def _default_store():
@@ -120,7 +123,9 @@ class IndexRun:
 
     def _rel(self, path):
         try:
-            return str(Path(path).resolve().relative_to(Path(self.workspace).resolve()))
+            rel = Path(path).resolve().relative_to(Path(self.workspace).resolve())
+            # Normalise to forward slashes so the UI (and tests) read the same on every OS.
+            return str(rel).replace("\\", "/")
         except Exception:
             return Path(path).name
 
