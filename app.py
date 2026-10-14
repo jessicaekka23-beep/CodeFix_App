@@ -23,6 +23,13 @@ try:                                    # optional: load GROQ_API_KEY etc. from 
 except ImportError:
     pass
 
+try:                                    # hosted (Streamlit Cloud): expose st.secrets as env vars
+    for _k, _v in dict(st.secrets).items():
+        if isinstance(_v, str) and not os.environ.get(_k):
+            os.environ[_k] = _v
+except Exception:
+    pass
+
 st.set_page_config(page_title="CodePilot Local", page_icon="🛡️", layout="wide",
                    initial_sidebar_state="expanded")
 
@@ -409,8 +416,11 @@ with st.sidebar:
 
     st.markdown("##### ⚙️ Engine")
     engines = {"🏠 Local (Ollama)": "ollama", "⚡ Groq Cloud": "groq", "🌐 OpenAI / OpenRouter": "openai"}
+    default_provider = st.session_state.provider
+    if not ollama_ok and default_provider == "ollama" and os.environ.get("GROQ_API_KEY"):
+        default_provider = "groq"          # hosted with a key configured: start on the cloud engine
     engine = engines[st.selectbox("Inference engine", list(engines),
-                                  index=list(engines.values()).index(st.session_state.provider),
+                                  index=list(engines.values()).index(default_provider),
                                   label_visibility="collapsed")]
     st.session_state.provider = engine
 
@@ -422,7 +432,7 @@ with st.sidebar:
             st.warning("No compatible local models found")
             st.session_state.model = DEFAULT_MODEL
         st.caption("🟢 Ollama connected · code stays on this machine" if ollama_ok
-                   else "🔴 Ollama not running. Start it with `ollama serve`")
+                   else "🔴 Ollama not running. Start it with `ollama serve`, or choose a cloud engine above.")
     else:
         st.caption("⚠️ Cloud mode sends prompts and retrieved code to a third party.")
         env_key = "GROQ_API_KEY" if engine == "groq" else "OPENAI_API_KEY"

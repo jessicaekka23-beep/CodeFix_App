@@ -20,7 +20,7 @@ OpenAI-compatible engines are optional. Cloud mode sends prompts and retrieved c
 pip install -r requirements.txt
 ollama pull nomic-embed-text      # optional: embeddings (falls back to a built-in embedder)
 ollama pull qwen2.5-coder:7b      # default local model
-streamlit run app.py              # http://localhost:8501
+streamlit run app_pipeline.py              # http://localhost:8501
 ```
 
 Embeddings work with or without Ollama. Generation needs a model, but indexing and retrieval do not: if
